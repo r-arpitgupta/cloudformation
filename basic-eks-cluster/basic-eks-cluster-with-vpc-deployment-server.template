@@ -248,7 +248,7 @@
       "Value": {
         "Fn::GetAtt": [
           "DeploymentServerStack",
-          "Outputs.IPAddress"
+          "Outputs.InstanceIPAddress"
         ]
       }
     },
