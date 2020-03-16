@@ -1,0 +1,95 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "This template creates AWS IAM Role required to create further resources for EKS.",
+  "Resources": {
+    "InstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          {
+            "Ref": "InstanceRole"
+          }
+        ]
+      }
+    },
+    "InstanceRolePolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "ec2:*",
+                "autoscaling:*",
+                "iam:*",
+                "eks:*",
+                "cloudwatch:*",
+                "s3:*",
+                "elasticache:*",
+                "rds:*",
+                "dynamodb:*",
+                "lambda:*",
+                "apigateway:*",
+                "cloudformation:*",
+                "logs:*",
+                "events:*"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": {
+          "Fn::Sub": "${AWS::StackName}-PolicyNLB"
+        },
+        "Roles": [
+          {
+            "Ref": "InstanceRole"
+          }
+        ]
+      }
+    },
+    "InstanceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com",
+                  "cloudformation.amazonaws.com"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+          "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+        ]
+      }
+    }
+  },
+  "Outputs": {
+      "InstanceRole": {
+      "Description": "Role that has permissions to create and manage EKS Cluster",
+      "Value": {
+        "Fn::GetAtt": "InstanceRole.Arn"
+      }
+    },
+    "InstanceProfile": {
+      "Description": "Instance Profile that has permissions to create and manage EKS Cluster",
+      "Value": {
+        "Ref": "InstanceProfile"
+      }
+    }
+  }
+}

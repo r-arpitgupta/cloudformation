@@ -1,0 +1,38 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "eks-test"
+  },
+  {
+    "ParameterKey": "KeyPair",
+    "ParameterValue": "<>"
+  },
+  {
+    "ParameterKey": "InstanceProfile",
+    "ParameterValue": "<>"
+  },
+  {
+    "ParameterKey": "DeploymentInstanceAMI",
+    "ParameterValue": "<>"
+  },
+  {
+    "ParameterKey": "ClusterName",
+    "ParameterValue": "eks-cloudformation"
+  },
+  {
+    "ParameterKey": "NodeAutoScalingGroupMinSize",
+    "ParameterValue": "2"
+  },
+  {
+    "ParameterKey": "NodeAutoScalingGroupDesiredCapacity",
+    "ParameterValue": "2"
+  },
+  {
+    "ParameterKey": "NodeAutoScalingGroupMaxSize",
+    "ParameterValue": "5"
+  },
+  {
+    "ParameterKey": "NodeInstanceType",
+    "ParameterValue": "t3.xlarge"
+  }
+]

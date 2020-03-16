@@ -1,0 +1,568 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudFormation for EKS Cluster and auto-scaling group",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "EKS Cluster and Worker Node, Network Configuration"
+          },
+          "Parameters": [
+            "ClusterName",
+            "KeyName",
+            "VpcId",
+            "Subnets",
+            "NodeAutoScalingGroupMinSize",
+            "NodeAutoScalingGroupDesiredCapacity",
+            "NodeAutoScalingGroupMaxSize",
+            "NodeInstanceType",
+            "InstanceSecurityGroup"
+          ]
+        }
+      ]
+    }
+  },
+  "Parameters": {
+    "InstanceSecurityGroup": {
+      "Description": "Security group Id's that can be used to access the EC2 instances",
+      "Type": "List<AWS::EC2::SecurityGroup::Id>"
+    },
+    "ClusterName": {
+      "Type": "String",
+      "Description": "EKS cluster name."
+    },
+    "KeyName": {
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "Description": "The EC2 Key Pair to allow SSH access to the instances within ASG"
+    },
+    "Subnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>",
+      "Description": "The subnets where workers can be created."
+    },
+    "VpcId": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Description": "The VPC of the worker instances"
+    },
+    "NodeAutoScalingGroupDesiredCapacity": {
+      "Type": "Number",
+      "Default": 2,
+      "Description": "Desired capacity of Node Group ASG."
+    },
+    "NodeAutoScalingGroupMaxSize": {
+      "Type": "Number",
+      "Default": 5,
+      "Description": "Maximum size of Node Group ASG. Set to at least 1 or greater than NodeAutoScalingGroupDesiredCapacity."
+    },
+    "NodeAutoScalingGroupMinSize": {
+      "Type": "Number",
+      "Default": 2,
+      "Description": "Minimum size of Node Group ASG."
+    },
+    "NodeInstanceType": {
+      "Type": "String",
+      "Default": "t3.xlarge",
+      "AllowedValues": [
+        "t3.xlarge",
+        "t3.2xlarge",
+        "c5.2xlarge"
+      ],
+      "ConstraintDescription": "Must be a valid EC2 instance type",
+      "Description": "EC2 instance type for the node instances"
+    }
+  },
+  "Resources": {
+    "ClusterSharedNodeSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Communication between all nodes in the cluster",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "Tags": [
+          {
+            "Key": {
+              "Fn::Sub": "kubernetes.io/cluster/${ClusterName}"
+            },
+            "Value": "owned"
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${ClusterName}/ClusterSharedNodeSecurityGroup"
+            }
+          }
+        ]
+      }
+    },
+    "EKSCluster": {
+      "Type": "AWS::EKS::Cluster",
+      "Properties": {
+        "Name": {
+          "Ref": "ClusterName"
+        },
+        "ResourcesVpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Ref": "EKSClusterSecurityGroup"
+            }
+          ],
+          "SubnetIds": {
+            "Ref": "Subnets"
+          }
+        },
+        "RoleArn": {
+          "Fn::GetAtt": "ServiceRole.Arn"
+        },
+        "Version": "1.14"
+      }
+    },
+    "EKSClusterSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Communication between the control plane and worker nodegroups",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${ClusterName}/EKSClusterSecurityGroup"
+            }
+          }
+        ]
+      }
+    },
+    "IngressInterNodeGroupSG": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "Description": "Allow nodes to communicate with each other (all ports)",
+        "FromPort": 0,
+        "GroupId": {
+          "Ref": "ClusterSharedNodeSecurityGroup"
+        },
+        "IpProtocol": "-1",
+        "SourceSecurityGroupId": {
+          "Ref": "ClusterSharedNodeSecurityGroup"
+        },
+        "ToPort": 65535,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${ClusterName}/IngressInterNodeGroupSG"
+            }
+          }
+        ]
+      }
+    },
+    "PolicyCloudWatchMetrics": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "cloudwatch:PutMetricData"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": {
+          "Fn::Sub": "${ClusterName}-PolicyCloudWatchMetrics"
+        },
+        "Roles": [
+          {
+            "Ref": "ServiceRole"
+          }
+        ]
+      }
+    },
+    "PolicyNLB": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "elasticloadbalancing:*",
+                "ec2:CreateSecurityGroup",
+                "ec2:Describe*"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": {
+          "Fn::Sub": "${ClusterName}-PolicyNLB"
+        },
+        "Roles": [
+          {
+            "Ref": "ServiceRole"
+          }
+        ]
+      }
+    },
+    "ServiceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "eks.amazonaws.com"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AmazonEKSServicePolicy",
+          "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${ClusterName}/ServiceRole"
+            }
+          }
+        ]
+      }
+    },
+    "SG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Communication between the control plane and worker nodes in group nodegroup-1",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${ClusterName}/SG"
+            }
+          }
+        ]
+      }
+    },
+    "EgressInterCluster": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "Description": "Allow control plane to communicate with worker nodes in group nodegroup-1 (kubelet and workload TCP ports)",
+        "DestinationSecurityGroupId": {
+          "Ref": "SG"
+        },
+        "FromPort": 1025,
+        "GroupId": {
+          "Ref": "EKSClusterSecurityGroup"
+        },
+        "IpProtocol": "tcp",
+        "ToPort": 65535
+      }
+    },
+    "EgressInterClusterAPI": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "Description": "Allow control plane to communicate with worker nodes in group nodegroup-1 (workloads using HTTPS port, commonly used with extension API servers)",
+        "DestinationSecurityGroupId": {
+          "Ref": "SG"
+        },
+        "FromPort": 443,
+        "GroupId": {
+          "Ref": "EKSClusterSecurityGroup"
+        },
+        "IpProtocol": "tcp",
+        "ToPort": 443
+      }
+    },
+    "IngressInterCluster": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "Description": "Allow worker nodes in group nodegroup-1 to communicate with control plane (kubelet and workload TCP ports)",
+        "FromPort": 1025,
+        "GroupId": {
+          "Ref": "SG"
+        },
+        "IpProtocol": "tcp",
+        "SourceSecurityGroupId": {
+          "Ref": "EKSClusterSecurityGroup"
+        },
+        "ToPort": 65535
+      }
+    },
+    "IngressInterClusterAPI": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "Description": "Allow worker nodes in group nodegroup-1 to communicate with control plane (workloads using HTTPS port, commonly used with extension API servers)",
+        "FromPort": 443,
+        "GroupId": {
+          "Ref": "SG"
+        },
+        "IpProtocol": "tcp",
+        "SourceSecurityGroupId": {
+          "Ref": "EKSClusterSecurityGroup"
+        },
+        "ToPort": 443
+      }
+    },
+    "IngressInterClusterCP": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "Description": "Allow control plane to receive API requests from worker nodes in group nodegroup-1",
+        "FromPort": 443,
+        "GroupId": {
+          "Ref": "EKSClusterSecurityGroup"
+        },
+        "IpProtocol": "tcp",
+        "SourceSecurityGroupId": {
+          "Ref": "SG"
+        },
+        "ToPort": 443
+      }
+    },
+    "NodeGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "LaunchTemplate": {
+          "LaunchTemplateName": {
+            "Fn::Sub": "${ClusterName}-AutoScalingGroup"
+          },
+          "Version": {
+            "Fn::GetAtt": "NodeGroupLaunchTemplate.LatestVersionNumber"
+          }
+        },
+        "DesiredCapacity": {
+          "Ref": "NodeAutoScalingGroupDesiredCapacity"
+        },
+        "MaxSize": {
+          "Ref": "NodeAutoScalingGroupMaxSize"
+        },
+        "MinSize": {
+          "Ref": "NodeAutoScalingGroupMinSize"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Sub": "${ClusterName}/NodeGroup"
+            }
+          },
+          {
+            "Key": {
+              "Fn::Sub": "kubernetes.io/cluster/${ClusterName}"
+            },
+            "PropagateAtLaunch": "true",
+            "Value": "owned"
+          }
+        ],
+        "VPCZoneIdentifier": {
+          "Ref": "Subnets"
+        }
+      },
+      "UpdatePolicy": {
+        "AutoScalingRollingUpdate": {
+          "MaxBatchSize": "1",
+          "MinInstancesInService": "0"
+        }
+      }
+    },
+    "PolicyNodeInstance": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:DescribeLogStreams"
+              ],
+              "Effect": "Allow",
+              "Resource": "arn:aws:logs:*:*:*"
+            },
+            {
+              "Action": [
+                "cloudformation:DescribeStackResource",
+                "cloudformation:SignalResource"
+              ],
+              "Effect": "Allow",
+              "Resource": "arn:aws:cloudformation:*:*:*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": {
+          "Fn::Sub": "${ClusterName}-PolicyNodeInstance"
+        },
+        "Roles": [
+          {
+            "Ref": "NodeInstanceRole"
+          }
+        ]
+      }
+    },
+    "NodeInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          {
+            "Ref": "NodeInstanceRole"
+          }
+        ]
+      }
+    },
+    "NodeInstanceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com",
+                  "eks.amazonaws.com"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AutoScalingFullAccess",
+          "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+          "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+          "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+        ],
+        "Path": "/",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${ClusterName}/NodeInstanceRole"
+            }
+          }
+        ]
+      }
+    },
+    "NodeGroupLaunchTemplate": {
+      "Type": "AWS::EC2::LaunchTemplate",
+      "Properties": {
+        "LaunchTemplateData": {
+          "IamInstanceProfile": {
+            "Arn": {
+              "Fn::GetAtt": "NodeInstanceProfile.Arn"
+            }
+          },
+          "ImageId": "ami-0392bafc801b7520f",
+          "KeyName": {
+            "Ref": "KeyName"
+          },
+          "InstanceType": {
+            "Ref": "NodeInstanceType"
+          },
+          "NetworkInterfaces": [
+            {
+              "AssociatePublicIpAddress": true,
+              "DeviceIndex": 0,
+              "Groups": [
+                {
+                  "Ref": "EKSClusterSecurityGroup"
+                },
+                {
+                  "Ref": "ClusterSharedNodeSecurityGroup"
+                },
+                {
+                  "Ref": "SG"
+                },
+                {
+                  "Fn::Join": [
+                    ",",
+                    {
+                      "Ref": "InstanceSecurityGroup"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "UserData": {
+            "Fn::Base64": {
+              "Fn::Join": [
+                "",
+                [
+                  "#!/bin/bash \n",
+                  "set -o xtrace \n",
+                  {
+                    "Fn::Sub": "/etc/eks/bootstrap.sh ${ClusterName} \n"
+                  },
+                  {
+                    "Fn::Sub": "/opt/aws/bin/cfn-signal -e $? --stack  ${AWS::StackName} --resource NodeGroup --region ${AWS::Region} \n"
+                  }
+                ]
+              ]
+            }
+          }
+        },
+        "LaunchTemplateName": {
+          "Fn::Sub": "${ClusterName}-AutoScalingGroup"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ClusterName": {
+      "Description": "EKS Cluster",
+      "Value": {
+        "Ref": "EKSCluster"
+      }
+    },
+    "ClusterKeyName": {
+      "Description": "Keypair for the nodes in the cluster",
+      "Value": {
+        "Ref": "KeyName"
+      }
+    },
+    "AutoScalingGroup": {
+      "Description": "Auto Scaling Group associated to the EKS Cluster",
+      "Value": {
+        "Ref": "NodeGroup"
+      }
+    },
+    "NodeInstanceRole": {
+      "Description": "Instance Role for the Nodes in Auto Scaling Group associated to the EKS Cluster",
+      "Value": {
+        "Fn::GetAtt": "NodeInstanceRole.Arn"
+      }
+    },
+    "FeatureLocalSecurityGroup": {
+      "Value": true
+    },
+    "FeaturePrivateNetworking": {
+      "Value": false
+    },
+    "FeatureSharedSecurityGroup": {
+      "Value": true
+    }
+  }
+}

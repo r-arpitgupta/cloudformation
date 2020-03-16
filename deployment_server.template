@@ -1,0 +1,114 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudFormation for deployment server",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "EC2 Instance"
+          },
+          "Parameters": [
+            "InstanceAMI",
+            "InstanceKeyPair",
+            "InstanceSecurityGroup",
+            "InstanceSubnet",
+            "InstanceProfile"
+          ]
+        }
+      ]
+    }
+  },
+  "Parameters": {
+    "InstanceAMI": {
+      "Description": "Existing AMI to be used to bring up the instance.",
+      "Type": "AWS::EC2::Image::Id"
+    },
+    "InstanceKeyPair": {
+      "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance.",
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    },
+    "InstanceSecurityGroup": {
+      "Description": "Security group Id's that can be used to access the EC2 instances",
+      "Type": "List<AWS::EC2::SecurityGroup::Id>"
+    },
+    "InstanceSubnet": {
+      "Description": "Subnet in which the EC2 instance should be launched.",
+      "Type": "AWS::EC2::Subnet::Id"
+    },
+    "InstanceProfile": {
+      "Description": "Instance Profile to be attached to the instance.",
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "EC2Instance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "InstanceType": "t3.small",
+        "SecurityGroupIds": {
+          "Ref": "InstanceSecurityGroup"
+        },
+        "SubnetId": {
+          "Ref": "InstanceSubnet"
+        },
+        "KeyName": {
+          "Ref": "InstanceKeyPair"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "EKS Deployment Server"
+            }
+          }
+        ],
+        "ImageId": {
+          "Ref": "InstanceAMI"
+        },
+        "IamInstanceProfile": {
+          "Ref": "InstanceProfile"
+        }
+      }
+    },
+
+    "IPAddress": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Tags": [{
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "EKS Deployment EIP"
+            }
+          }
+        ]
+      }
+    },
+
+    "IPAssoc": {
+      "Type": "AWS::EC2::EIPAssociation",
+      "Properties": {
+        "InstanceId": {
+          "Ref": "EC2Instance"
+        },
+        "EIP": {
+          "Ref": "IPAddress"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "InstanceId": {
+      "Description": "InstanceId of the newly created EC2 instance",
+      "Value": {
+        "Ref": "EC2Instance"
+      }
+    },
+    "InstanceIPAddress": {
+      "Description": "IP address of the newly created EC2 instance",
+      "Value": {
+        "Ref": "IPAddress"
+      }
+    }
+  }
+}
