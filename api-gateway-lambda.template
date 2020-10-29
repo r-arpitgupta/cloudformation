@@ -1,0 +1,147 @@
+{
+  "Description": "Template to create VOD ingest Lambda function using CloudFormation.",
+  "Parameters": {
+    "Prefix": {
+      "Type": "String"
+    },
+    "FunctionName": {
+      "Type": "String"
+    },
+    "RoleArn": {
+      "Description": "ARN for IAM Execution Role used by Lambda function",
+      "Type": "String"
+    },
+    "ZipFileLocation": {
+      "Type": "String",
+      "Description": "location of the VOD ingest Lambda code in bucket"
+    },
+    "CodeBucket": {
+      "Type": "String",
+      "Description": "S3 bucket name which has the code for VOD ingest Lambda"
+    },
+    "Timeout": {
+      "Type": "Number",
+      "Default": 300,
+      "Description": "Timeout for VOD ingest lambda function in seconds"
+    },
+    "MemorySize": {
+      "Type": "Number",
+      "Default": 256,
+      "Description": "Valid MemorySize that needs to be assigned for lambda function"
+    },
+    "Handler": {
+      "Type": "String",
+      "Description": "Handler to be called"
+    },
+    "CloudWatchLogExpiryInDays": {
+      "Description": "Number of days after which cloudwatch logs for Lambda will be deleted",
+      "Type": "Number"
+    },
+    "ConfigTableName": {
+      "Type": "String",
+      "Default": "vod_channel_config",
+      "Description": "DynamoDB table name for vod channel config"
+    },
+    "AssetInfoTableName": {
+      "Type": "String",
+      "Default": "vod_asset_info",
+      "Description": "DynamoDB table name for vod asset information"
+    },
+    "Bucket": {
+      "Type": "String",
+      "Description": ""
+    }
+  },
+  "Resources": {
+    "LambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": {
+          "Ref": "Handler"
+        },
+        "Role": {
+          "Ref": "RoleArn"
+        },
+        "Code": {
+          "S3Bucket": {
+            "Ref": "CodeBucket"
+          },
+          "S3Key": {
+            "Ref": "ZipFileLocation"
+          }
+        },
+        "Runtime": "python3.8",
+        "MemorySize": {
+          "Ref": "MemorySize"
+        },
+        "Timeout": {
+          "Ref": "Timeout"
+        },
+        "FunctionName": {
+          "Fn::Sub": [
+            "${Prefix}-${FunctionName}-${StackGuid}",
+            {
+              "StackGuid": {
+                "Fn::Select": [
+                  2,
+                  {
+                    "Fn::Split": [
+                      "/",
+                      {
+                        "Ref": "AWS::StackId"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "Prefix": {
+                "Ref": "Prefix"
+              }
+            }
+          ]
+        },
+        "Environment": {
+          "Variables": {
+            "CHANNEL_CONFIG_TABLE_NAME": {
+              "Ref": "ConfigTableName"
+            },
+            "ASSET_INFO_TABLE_NAME": {
+              "Ref": "AssetInfoTableName"
+            },
+            "BUCKET": {
+              "Ref": "Bucket"
+            }
+          }
+        }
+      }
+    },
+    "LambdaLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Join": [
+            "/",
+            [
+              "/aws",
+              "lambda",
+              {
+                "Ref": "LambdaFunction"
+              }
+            ]
+          ]
+        },
+        "RetentionInDays": {
+          "Ref": "CloudWatchLogExpiryInDays"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "LambdaFunction": {
+      "Value": {
+        "Fn::GetAtt": "LambdaFunction.Arn"
+      },
+      "Description": "Lambda Function ARN."
+    }
+  }
+}

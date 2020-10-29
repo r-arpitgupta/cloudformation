@@ -1,0 +1,43 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "RestApiId": {
+      "Type": "String"
+    },
+    "ValidatorName": {
+      "Type": "String"
+    },
+    "ValidateRequestBody": {
+      "Type": "String"
+    },
+    "ValidateRequestParameters": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "RequestValidator": {
+      "Type": "AWS::ApiGateway::RequestValidator",
+      "Properties": {
+        "Name": {
+          "Ref": "ValidatorName"
+        },
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "ValidateRequestBody": {
+          "Ref": "ValidateRequestBody"
+        },
+        "ValidateRequestParameters": {
+          "Ref": "ValidateRequestParameters"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "RequestValidator": {
+      "Value": {
+        "Ref": "RequestValidator"
+      }
+    }
+  }
+}

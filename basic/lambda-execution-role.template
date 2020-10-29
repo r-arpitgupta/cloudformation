@@ -1,0 +1,59 @@
+{
+  "Description": "Template to create Lambda execution role using CloudFormation.",
+  "Resources": {
+    "LambdaExecutionPolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "logs:*",
+                "dynamodb:*",
+                "sns:*",
+                "s3:*",
+                "sqs:*"
+              ],
+              "Resource": "*"
+            }
+          ]
+        },
+        "PolicyName": {
+          "Fn::Sub": "vod-lambda-execution-policy"
+        },
+        "Roles": [
+          {
+            "Ref": "LambdaExecutionRole"
+          }
+        ]
+      }
+    },
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "LambdaExecutionRole": {
+      "Description": "Role that has permissions to access required AWS resources from lambda",
+      "Value": {
+        "Fn::GetAtt": "LambdaExecutionRole.Arn"
+      }
+    }
+  }
+}

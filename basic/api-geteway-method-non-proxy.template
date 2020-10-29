@@ -1,0 +1,95 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "ApiKeyRequired": {
+      "Type": "String",
+      "Default": "true"
+    },
+    "HttpMethod": {
+      "Type": "String"
+    },
+    "IntegrationType": {
+      "Type": "String"
+    },
+    "IntegrationUri": {
+      "Type": "String"
+    },
+    "ResourceId": {
+      "Type": "String"
+    },
+    "RestApiId": {
+      "Type": "String"
+    },
+    "IntegrationHttpMethod": {
+      "Type": "String"
+    },
+    "IntegrationCredentials": {
+      "Type": "String"
+    },
+    "MethodName": {
+      "Type": "String"
+    }
+  },
+  "Mappings": {
+    "MethodResponses": {
+      "ChannelConfigGet": [
+        {
+          "ResponseModels": {
+            "application/json": "Empty"
+          },
+          "ResponseParameters": {
+            "method.response.header.Access-Control-Allow-Headers": true,
+            "method.response.header.Access-Control-Allow-Methods": true,
+            "method.response.header.Access-Control-Allow-Origin": true
+          },
+          "StatusCode": "200"
+        }
+      ]
+    }
+  },
+  "Resources": {
+    "Method": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "ApiKeyRequired": {
+          "Ref": "ApiKeyRequired"
+        },
+        "AuthorizationScopes": [],
+        "AuthorizationType": "NONE",
+        "AuthorizerId": "NONE",
+        "HttpMethod": {
+          "Ref": "HttpMethod"
+        },
+        "Integration": {
+          "Type": {
+            "Ref": "IntegrationType"
+          },
+          "IntegrationHttpMethod": {
+            "Ref": "IntegrationHttpMethod"
+          },
+          "Credentials": {
+            "Ref": "IntegrationCredentials"
+          },
+          "Uri": {
+            "Ref": "IntegrationUri"
+          }
+        },
+        "ResourceId": {
+          "Ref": "ResourceId"
+        },
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "MethodResponses": {
+          "Fn::FindInMap": [
+            "MethodResponses",
+            {
+              "Ref": "MethodName"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {}
+}

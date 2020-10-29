@@ -1,0 +1,65 @@
+{
+  "Parameters": {
+    "SpotComputeEnvironment": {
+      "Type": "String"
+    },
+    "OnDemandComputeEnvironment": {
+      "Type": "String"
+    },
+    "Prefix": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "JobQueue": {
+      "Type": "AWS::Batch::JobQueue",
+      "Properties": {
+        "JobQueueName": {
+           "Fn::Sub": [
+                        "${Prefix}-job-queue-${StackGuid}",
+                        {
+                            "StackGuid": {
+                                "Fn::Select": [
+                                    2,
+                                    {
+                                        "Fn::Split": [
+                                            "/",
+                                            {
+                                                "Ref": "AWS::StackId"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                          "Prefix": {
+                            "Ref": "Prefix"
+                          }
+                        }
+                    ]
+        },
+        "Priority": 1,
+        "ComputeEnvironmentOrder": [
+          {
+            "Order": 1,
+            "ComputeEnvironment": {
+              "Ref": "SpotComputeEnvironment"
+            }
+          },
+          {
+            "Order": 2,
+            "ComputeEnvironment": {
+              "Ref": "OnDemandComputeEnvironment"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "JobQueue": {
+      "Value": {
+        "Ref": "JobQueue"
+      }
+    }
+  }
+}

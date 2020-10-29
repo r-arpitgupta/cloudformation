@@ -1,0 +1,87 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "RestApiId": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "AssetInput": {
+      "Type": "AWS::ApiGateway::Model",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "ContentType": "application/json",
+        "Description": "",
+        "Name": "AssetInput",
+        "Schema": {
+          "title": "asset input",
+          "description": "input asset schema",
+          "type": "object",
+          "properties": {
+            "channel_id": {
+      "description": "asset channel_id. Get this channel_id during channel creation phase",
+      "type": "string"
+    },
+            "asset_id": {
+              "description": "unique asset identifier per channel",
+              "type": "string"
+            },
+            "asset_name": {
+              "description": "name of the asset",
+              "type": "string"
+            },
+            "asset_duration": {
+              "description": "duration for asset",
+              "type": "number"
+            },
+            "m3u8_url": {
+              "description": "master m3u8 url",
+              "type": "string"
+            },
+            "cue_points": {
+              "description": "cue_points where we can insert ad(in seconds)",
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "number"
+              }
+            },
+            "enable_post_roll": {
+              "description": "flag whether need to enable post roll or not",
+              "type": "boolean"
+            },
+            "enable_pre_roll": {
+              "description": "flag whether need to enable pre roll or not",
+              "type": "boolean"
+            },
+            "asset_metadata": {
+              "description": "additional info for asset e.g. genre",
+              "type": "object"
+            },
+            "reprocess": {
+              "description": "value should be true if need to reprocess otherwise key should not present",
+              "type": "boolean"
+            }
+          },
+          "required": [
+          "channel_id",
+            "asset_id",
+            "asset_name",
+            "asset_duration",
+            "m3u8_url",
+            "cue_points"
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "AssetInputModel": {
+      "Value": {
+        "Ref": "AssetInput"
+      }
+    }
+  }
+}

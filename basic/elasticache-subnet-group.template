@@ -1,0 +1,23 @@
+{
+  "Parameters": {
+    "Subnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>"
+    }
+  },
+  "Resources": {
+    "SubnetGroup": {
+      "Type": "AWS::ElastiCache::SubnetGroup",
+      "Properties": {
+        "Description":"subnet",
+        "SubnetIds": {"Ref":"Subnets"}
+      }
+    }
+  },
+  "Outputs": {
+    "SubnetGroup": {
+      "Value": {
+        "Ref": "SubnetGroup"
+      }
+    }
+  }
+}

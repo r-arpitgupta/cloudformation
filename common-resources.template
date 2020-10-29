@@ -1,0 +1,145 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "Prefix": {
+      "Type": "String",
+      "Default": "vod"
+    },
+    "ConfigTableName": {
+      "Type": "String",
+      "Default": "channel-config"
+    },
+    "AssetInfoTableName": {
+      "Type": "String",
+      "Default": "asset-info"
+    }
+  },
+  "Resources": {
+    "ConfigTable": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "dynamodb-channel-config.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {
+            "Ref": "Prefix"
+          },
+          "TableName": {
+            "Ref": "ConfigTableName"
+          }
+        }
+      }
+    },
+    "AssetInfoTable": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "dynamodb-asset-info.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {
+            "Ref": "Prefix"
+          },
+          "TableName": {
+            "Ref": "AssetInfoTableName"
+          }
+        }
+      }
+    },
+    "SQSSuccessNotificationQueue": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "basic/sqs.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {
+            "Ref": "Prefix"
+          },
+          "QueueName": "success-notify"
+        }
+      }
+    },
+    "SQSFailureNotificationQueue": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "basic/sqs.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {
+            "Ref": "Prefix"
+          },
+          "QueueName": "failure-notify"
+        }
+      }
+    },
+    "ApiKey": {
+      "Type": "AWS::ApiGateway::ApiKey",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": [
+            "${Prefix}-api-key-${StackGuid}",
+            {
+              "StackGuid": {
+                "Fn::Select": [
+                  2,
+                  {
+                    "Fn::Split": [
+                      "/",
+                      {
+                        "Ref": "AWS::StackId"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "Prefix": {
+                "Ref": "Prefix"
+              }
+            }
+          ]
+        },
+        "Description": "CloudFormation API Key V1",
+        "Enabled": true,
+        "GenerateDistinctId": false
+      }
+    }
+  },
+  "Outputs": {
+    "SQSSuccessNotificationQueueName": {
+      "Value": {
+        "Fn::GetAtt": [
+          "SQSSuccessNotificationQueue",
+          "Outputs.QueueName"
+        ]
+      }
+    },
+    "SQSFailureNotificationQueueName": {
+      "Value": {
+        "Fn::GetAtt": [
+          "SQSFailureNotificationQueue",
+          "Outputs.QueueName"
+        ]
+      }
+    },
+    "AssetInfoTableName": {
+      "Value": {
+        "Fn::GetAtt": [
+          "AssetInfoTable",
+          "Outputs.TableName"
+        ]
+      }
+    },
+    "ConfigTableName": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ConfigTable",
+          "Outputs.TableName"
+        ]
+      }
+    },
+    "ApiKeyId": {
+      "Value": {
+        "Ref": "ApiKey"
+      }
+    }
+  }
+}

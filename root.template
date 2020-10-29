@@ -1,0 +1,346 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "Prefix": {
+      "Type": "String",
+      "Default": "vod-workflow"
+    },
+    "IngestLambdaZipFileLocation": {
+      "Type": "String"
+    },
+    "InstrumentationLambdaZipFileLocation": {
+      "Type": "String"
+    },
+    "CodeBucket": {
+      "Type": "String"
+    },
+    "AssetBucket": {
+      "Type": "String"
+    },
+    "LambdaTimeout": {
+      "Type": "Number",
+      "Default": 300
+    },
+    "LambdaMemorySize": {
+      "Type": "Number",
+      "Default": 256
+    },
+    "CloudWatchLogExpiryInDays": {
+      "Type": "Number",
+      "Default": 7
+    },
+    "BatchVCPUs": {
+      "Type": "Number",
+      "Default": 1
+    },
+    "BatchMemorySize": {
+      "Type": "Number",
+      "Default": 2048
+    },
+    "BatchAssetDurationUnitResource": {
+      "Type": "Number",
+      "Default": 1800
+    },
+    "ConfigTableName": {
+      "Type": "String"
+    },
+    "AssetInfoTableName": {
+      "Type": "String"
+    },
+    "CDNEndpoint": {
+      "Type": "String"
+    },
+    "KeyName": {
+      "Type": "String",
+      "Default": "Thunderstorm"
+    },
+    "SecurityGroupIds": {
+      "Type": "List<AWS::EC2::SecurityGroup::Id>"
+    },
+    "Subnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>"
+    },
+    "Image": {
+      "Type": "String"
+    },
+    "BatchTimeout": {
+      "Type": "Number",
+      "Default": 3600
+    },
+    "StageName": {
+      "Type": "String"
+    },
+    "ApiGatewayLambdaZipFileLocation": {
+      "Type": "String"
+    },
+    "ApiKeyId": {
+      "Type": "String"
+    },
+    "SQSSuccessNotificationQueueName": {
+      "Type": "String"
+    },
+    "SQSFailureNotificationQueueName": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "LambdaExecutionRole": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "basic/lambda-execution-role.template",
+        "TimeoutInMinutes": "60"
+      }
+    },
+    "VodIngestLambda": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "ingest-lambda.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {
+            "Ref": "Prefix"
+          },
+          "ZipFileLocation": {
+            "Ref": "IngestLambdaZipFileLocation"
+          },
+          "CodeBucket": {
+            "Ref": "CodeBucket"
+          },
+          "Timeout": {
+            "Ref": "LambdaTimeout"
+          },
+          "MemorySize": {
+            "Ref": "LambdaMemorySize"
+          },
+          "Handler": "app.main.lambda_handler",
+          "CloudWatchLogExpiryInDays": {
+            "Ref": "CloudWatchLogExpiryInDays"
+          },
+          "VCPUs": {
+            "Ref": "BatchVCPUs"
+          },
+          "Memory": {
+            "Ref": "BatchMemorySize"
+          },
+          "UnitDuration": {
+            "Ref": "BatchAssetDurationUnitResource"
+          },
+          "ConfigTableName": {
+            "Ref": "ConfigTableName"
+          },
+          "AssetInfoTableName": {
+            "Ref": "AssetInfoTableName"
+          },
+          "CDNEndpoint": {
+            "Ref": "CDNEndpoint"
+          },
+          "Bucket": {
+            "Ref": "AssetBucket"
+          },
+          "RoleArn": {
+            "Fn::GetAtt": [
+              "LambdaExecutionRole",
+              "Outputs.LambdaExecutionRole"
+            ]
+          },
+          "FunctionName": "Ingest",
+          "SQSSuccessNotificationQueueName": {"Ref": "SQSSuccessNotificationQueueName"},
+          "SQSFailureNotificationQueueName": {"Ref": "SQSFailureNotificationQueueName"}
+        }
+      }
+    },
+    "VodInstrumentationLambda": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "instrumentation-lambda.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "FunctionName": "instrumentation",
+          "Prefix": {
+            "Ref": "Prefix"
+          },
+          "ZipFileLocation": {
+            "Ref": "InstrumentationLambdaZipFileLocation"
+          },
+          "CodeBucket": {
+            "Ref": "CodeBucket"
+          },
+          "Timeout": {
+            "Ref": "LambdaTimeout"
+          },
+          "MemorySize": {
+            "Ref": "LambdaMemorySize"
+          },
+          "Handler": "com.amagi.thunderstorm.vod.LambdaHandler",
+          "CloudWatchLogExpiryInDays": {
+            "Ref": "CloudWatchLogExpiryInDays"
+          },
+          "RoleArn": {
+            "Fn::GetAtt": [
+              "LambdaExecutionRole",
+              "Outputs.LambdaExecutionRole"
+            ]
+          }
+        }
+      }
+    },
+    "Batch": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "batch.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {
+            "Ref": "Prefix"
+          },
+          "KeyName": {
+            "Ref": "KeyName"
+          },
+          "Subnets": {
+            "Fn::Join": [
+              ",",
+              {
+                "Ref": "Subnets"
+              }
+            ]
+          },
+          "SecurityGroupIds": {
+            "Fn::Join": [
+              ",",
+              {
+                "Ref": "SecurityGroupIds"
+              }
+            ]
+          },
+          "Image": {
+            "Ref": "Image"
+          },
+          "Timeout": {
+            "Ref": "BatchTimeout"
+          }
+        }
+      }
+    },
+    "StepFunction": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "step-function.yaml",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {"Ref":"Prefix"},
+          "IngestLambdaARN": {
+            "Fn::GetAtt": [
+              "VodIngestLambda",
+              "Outputs.LambdaFunction"
+            ]
+          },
+          "BatchJobQueueARN": {
+            "Fn::GetAtt": [
+              "Batch",
+              "Outputs.BatchJobQueue"
+            ]
+          },
+          "BatchJobDefinitionARN": {
+            "Fn::GetAtt": [
+              "Batch",
+              "Outputs.BatchJobDefinition"
+            ]
+          },
+          "InstrumentationLambdaARN": {
+            "Fn::GetAtt": [
+              "VodInstrumentationLambda",
+              "Outputs.LambdaFunction"
+            ]
+          }
+        }
+      }
+    },
+    "VodApiGatewayLambda": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-gateway-lambda.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {
+            "Ref": "Prefix"
+          },
+          "ZipFileLocation": {
+            "Ref": "ApiGatewayLambdaZipFileLocation"
+          },
+          "CodeBucket": {
+            "Ref": "CodeBucket"
+          },
+          "Timeout": {
+            "Ref": "LambdaTimeout"
+          },
+          "MemorySize": {
+            "Ref": "LambdaMemorySize"
+          },
+          "Handler": "app.main.lambda_handler",
+          "CloudWatchLogExpiryInDays": {
+            "Ref": "CloudWatchLogExpiryInDays"
+          },
+          "ConfigTableName": {
+            "Ref": "ConfigTableName"
+          },
+          "AssetInfoTableName": {
+            "Ref": "AssetInfoTableName"
+          },
+          "Bucket": {
+            "Ref": "AssetBucket"
+          },
+          "RoleArn": {
+            "Fn::GetAtt": [
+              "LambdaExecutionRole",
+              "Outputs.LambdaExecutionRole"
+            ]
+          },
+          "FunctionName": "ApiGateway"
+        }
+      }
+    },
+    "ApiGateway": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-gateway.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {"Ref": "Prefix"},
+          "StepMachineArn": {
+            "Fn::GetAtt": [
+              "StepFunction",
+              "Outputs.StepFunction"
+            ]
+          },
+          "LambdaArn": {
+            "Fn::GetAtt": [
+              "VodApiGatewayLambda",
+              "Outputs.LambdaFunction"
+            ]
+          },
+          "StageName": {"Ref": "StageName"},
+          "ApiKeyId": {"Ref": "ApiKeyId"}
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ApiEndpoint": {
+      "Value": {
+        "Fn::Sub": [ "https://${api}.execute-api.us-east-1.amazonaws.com/${stage}",
+          {
+            "api": {
+                "Fn::GetAtt": [
+                "ApiGateway",
+                "Outputs.RestApi"
+              ]
+            },
+            "stage": {
+              "Ref": "StageName"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

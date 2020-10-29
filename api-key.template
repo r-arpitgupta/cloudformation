@@ -1,0 +1,75 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "Prefix": {
+      "Type": "String"
+    },
+    "StageName": {
+      "Type": "String"
+    },
+    "ApiId": {
+      "Type": "String"
+    },
+    "ApiKeyId": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "ApiUsagePlan": {
+      "Type": "AWS::ApiGateway::UsagePlan",
+      "Properties": {
+        "ApiStages": [
+          {
+            "ApiId": {
+              "Ref": "ApiId"
+            },
+            "Stage": {
+              "Ref": "StageName"
+            }
+          }
+        ],
+        "Throttle": {
+          "BurstLimit": 1000,
+          "RateLimit": 1000
+        },
+        "UsagePlanName": {
+          "Fn::Sub": [
+            "${Prefix}-usage-plan-${StackGuid}",
+            {
+              "StackGuid": {
+                "Fn::Select": [
+                  2,
+                  {
+                    "Fn::Split": [
+                      "/",
+                      {
+                        "Ref": "AWS::StackId"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "Prefix": {
+                "Ref": "Prefix"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ApiUsagePlanKey": {
+      "Type": "AWS::ApiGateway::UsagePlanKey",
+      "Properties": {
+        "KeyId": {
+          "Ref": "ApiKeyId"
+        },
+        "KeyType": "API_KEY",
+        "UsagePlanId": {
+          "Ref": "ApiUsagePlan"
+        }
+      }
+    }
+  },
+  "Outputs": {
+  }
+}

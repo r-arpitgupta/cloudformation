@@ -1,0 +1,68 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "This example template shows how to create an Amazon SQS queue with CloudWatch alarms on queue depth. This template creates an Amazon SQS queue and one or more CloudWatch alarms. You will be billed for the AWS resources used if you create a stack using this template.",
+  "Parameters": {
+    "Prefix": {
+      "Type": "String"
+    },
+    "QueueName": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "SQSQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": {
+          "Fn::Sub": [
+            "${Prefix}-${QueueName}-${StackGuid}",
+            {
+              "StackGuid": {
+                "Fn::Select": [
+                  2,
+                  {
+                    "Fn::Split": [
+                      "/",
+                      {
+                        "Ref": "AWS::StackId"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "Prefix": {
+                "Ref": "Prefix"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "QueueURL": {
+      "Description": "URL of new Amazon SQS Queue",
+      "Value": {
+        "Ref": "SQSQueue"
+      }
+    },
+    "QueueARN": {
+      "Description": "ARN of new Amazon SQS Queue",
+      "Value": {
+        "Fn::GetAtt": [
+          "SQSQueue",
+          "Arn"
+        ]
+      }
+    },
+    "QueueName": {
+      "Description": "Name new Amazon SQS Queue",
+      "Value": {
+        "Fn::GetAtt": [
+          "SQSQueue",
+          "QueueName"
+        ]
+      }
+    }
+  }
+}

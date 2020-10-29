@@ -1,0 +1,162 @@
+{
+  "Description": "Template to create Lambda execution role using CloudFormation.",
+  "Parameters": {
+    "Prefix": {
+      "Type": "String"
+    },
+    "InstanceProfile": {
+      "Description": "",
+      "Type": "String"
+    },
+    "SpotBidPercentage": {
+      "Type": "Number",
+      "Description": "Maximum Spot bid percentage from on-demand instance price.",
+      "MaxValue": 100,
+      "MinValue": 5,
+      "Default": 100
+    },
+    "Subnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>",
+      "Description": "The subnets where workers can be created."
+    },
+    "LaunchTemplateId": {
+      "Type": "String",
+      "Description": "Launch Template you want your AWS Batch Compute Environments to use"
+    },
+    "MinvCpus": {
+      "Type": "Number",
+      "Description": "Minimum number of CPUs in the default compute environment. Default 0.",
+      "Default": 0,
+      "MinValue": 0
+    },
+    "MaxvCpus": {
+      "Type": "Number",
+      "Description": "Maximum number of CPUs in the default compute environment. Should be >= than MinCpus",
+      "Default": 100,
+      "MinValue": 0
+    },
+    "InstanceSecurityGroup": {
+      "Description": "Security group Id's that can be used to access the EC2 instances",
+      "Type": "List<AWS::EC2::SecurityGroup::Id>"
+    }
+  },
+  "Resources": {
+    "BatchServiceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "batch.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole"
+        ]
+      }
+    },
+    "SpotFleetRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "spotfleet.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole"
+        ]
+      }
+    },
+    "SpotComputeEnvironment": {
+      "Type": "AWS::Batch::ComputeEnvironment",
+      "Properties": {
+        "ComputeEnvironmentName": {
+          "Fn::Sub": [
+                        "${Prefix}-spot-compute-environment-${StackGuid}",
+                        {
+                            "StackGuid": {
+                                "Fn::Select": [
+                                    2,
+                                    {
+                                        "Fn::Split": [
+                                            "/",
+                                            {
+                                                "Ref": "AWS::StackId"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                          "Prefix": {
+                            "Ref": "Prefix"
+                          }
+                        }
+                    ]
+        },
+        "ServiceRole": {
+          "Ref": "BatchServiceRole"
+        },
+        "Type": "MANAGED",
+        "State": "ENABLED",
+        "ComputeResources": {
+          "BidPercentage": {
+            "Ref": "SpotBidPercentage"
+          },
+          "LaunchTemplate": {
+            "LaunchTemplateId": {
+              "Ref": "LaunchTemplateId"
+            }
+          },
+          "InstanceRole": {
+            "Ref": "InstanceProfile"
+          },
+          "InstanceTypes": [
+            "optimal"
+          ],
+          "MinvCpus": {
+            "Ref": "MinvCpus"
+          },
+          "MaxvCpus": {
+            "Ref": "MaxvCpus"
+          },
+          "SecurityGroupIds": {
+            "Ref": "InstanceSecurityGroup"
+          },
+          "SpotIamFleetRole": {
+            "Ref": "SpotFleetRole"
+          },
+          "Subnets": {
+            "Ref": "Subnets"
+          },
+          "Type": "SPOT"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ComputeEnvironment": {
+      "Description": "",
+      "Value": {
+        "Ref": "SpotComputeEnvironment"
+      }
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "Parameters": {
+    "Prefix": {
+      "Type": "String"
+    },
+    "Image": {
+      "Type": "String"
+    },
+    "Timeout": {
+      "Type": "Number"
+    },
+    "Vcpus": {
+      "Type": "Number",
+      "Default": 1
+    },
+    "Memory": {
+      "Type": "Number",
+      "Default": 2048
+    },
+    "RetryAttempts": {
+      "Type": "Number",
+      "Default": 2
+    }
+  },
+  "Resources": {
+    "JobDefinition": {
+      "Type": "AWS::Batch::JobDefinition",
+      "Properties": {
+        "JobDefinitionName": {
+          "Fn::Sub": [
+                        "${Prefix}-job-definition-${StackGuid}",
+                        {
+                            "StackGuid": {
+                                "Fn::Select": [
+                                    2,
+                                    {
+                                        "Fn::Split": [
+                                            "/",
+                                            {
+                                                "Ref": "AWS::StackId"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                          "Prefix": {
+                            "Ref": "Prefix"
+                          }
+                        }
+                    ]
+        },
+        "Type": "container",
+        "ContainerProperties": {
+          "Image": {
+            "Ref": "Image"
+          },
+          "Vcpus": 1,
+          "Memory": 2048,
+          "Command": []
+        },
+        "RetryStrategy": {
+          "Attempts": 2
+        },
+        "Timeout": {
+          "AttemptDurationSeconds": {
+            "Ref": "Timeout"
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "JobDefinition": {
+      "Value": {
+        "Ref": "JobDefinition"
+      }
+    }
+  }
+}

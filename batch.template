@@ -1,0 +1,205 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Template to create Lambda execution role using CloudFormation.",
+  "Parameters": {
+    "Prefix": {
+      "Type": "String",
+      "Default": "vod"
+    },
+    "KeyName": {
+      "Type": "String"
+    },
+    "SecurityGroupIds": {
+      "Type": "List<AWS::EC2::SecurityGroup::Id>"
+    },
+    "Subnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>"
+    },
+    "SpotBidPercentage": {
+      "Type": "Number",
+      "Description": "Maximum Spot bid percentage from on-demand instance price.",
+      "MaxValue": 100,
+      "MinValue": 5,
+      "Default": 100
+    },
+    "Image": {
+      "Type": "String"
+    },
+    "Timeout": {
+      "Type": "Number",
+      "Default": 3600
+    }
+  },
+  "Resources": {
+    "InstanceProfile": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "basic/instance-profile.template",
+        "TimeoutInMinutes": "60"
+      }
+    },
+    "LaunchTemplate": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "basic/launch-template.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "KeyName": {
+            "Ref": "KeyName"
+          },
+          "SecurityGroupIds": {
+            "Fn::Join": [
+              ",",
+              {
+                "Ref": "SecurityGroupIds"
+              }
+            ]
+          },
+          "Prefix": {
+            "Ref": "Prefix"
+          }
+        }
+      }
+    },
+    "OnDemandComputeEnvironment": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "basic/compute-environment-on-demand.template",
+        "TimeoutInMinutes": "60",
+
+      "Parameters":{
+        "Prefix": {"Ref": "Prefix"},
+        "InstanceProfile":{
+          "Fn::GetAtt": [
+          "InstanceProfile",
+          "Outputs.InstanceProfile"
+        ]
+        },
+        "Subnets": {
+          "Fn::Join": [
+              ",",
+              {
+                "Ref": "Subnets"
+              }
+            ]
+        },
+        "LaunchTemplateId": {
+          "Fn::GetAtt": [
+          "LaunchTemplate",
+          "Outputs.LaunchTemplateId"
+        ]
+        },
+        "InstanceSecurityGroup": {
+          "Fn::Join": [
+              ",",
+              {
+                "Ref": "SecurityGroupIds"
+              }
+            ]
+        }
+      }}
+    },
+    "SpotComputeEnvironment": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "basic/compute-environment-spot.template",
+        "TimeoutInMinutes": "60",
+
+      "Parameters":{
+        "Prefix": {"Ref": "Prefix"},
+        "InstanceProfile":{
+          "Fn::GetAtt": [
+          "InstanceProfile",
+          "Outputs.InstanceProfile"
+        ]
+        },
+        "Subnets": {
+          "Fn::Join": [
+              ",",
+              {
+                "Ref": "Subnets"
+              }
+            ]
+        },
+        "LaunchTemplateId": {
+          "Fn::GetAtt": [
+          "LaunchTemplate",
+          "Outputs.LaunchTemplateId"
+        ]
+        },
+        "InstanceSecurityGroup": {
+          "Fn::Join": [
+              ",",
+              {
+                "Ref": "SecurityGroupIds"
+              }
+            ]
+        },
+        "SpotBidPercentage": {
+          "Ref": "SpotBidPercentage"
+        }
+      }}
+    },
+    "BatchJobQueue": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "basic/job-queue.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "OnDemandComputeEnvironment": {
+             "Fn::GetAtt": [
+          "OnDemandComputeEnvironment",
+          "Outputs.ComputeEnvironment"
+        ]
+          },
+          "SpotComputeEnvironment": {
+             "Fn::GetAtt": [
+          "SpotComputeEnvironment",
+          "Outputs.ComputeEnvironment"
+        ]
+          },
+          "Prefix": {
+            "Ref": "Prefix"
+          }
+        }
+
+      }
+    },
+    "BatchJobDefinition": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "basic/job-definition.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {
+            "Ref": "Prefix"
+          },
+          "Image": {
+            "Ref": "Image"
+          },
+          "Timeout": {
+            "Ref": "Timeout"
+          }
+        }
+        }
+    }
+  },
+  "Outputs": {
+    "BatchJobQueue": {
+      "Value": {
+        "Fn::GetAtt": [
+          "BatchJobQueue",
+          "Outputs.JobQueue"
+        ]
+      }
+    },
+    "BatchJobDefinition": {
+      "Value": {
+        "Fn::GetAtt": [
+          "BatchJobDefinition",
+          "Outputs.JobDefinition"
+        ]
+      }
+    }
+  }
+}

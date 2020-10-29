@@ -1,0 +1,148 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "An example template with an IAM role for a Lambda state machine.",
+  "Resources": {
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "logs:*",
+                "dynamodb:*",
+                "sns:*",
+                "s3:*"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      }
+    },
+    "VODValidatorLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": "app.lambda_function.lambda_handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaExecutionRole",
+            "Arn"
+          ]
+        },
+        "Code": {
+          "S3Bucket": {
+            "Ref": "CodeBucket"
+          },
+          "S3Key": {
+            "Ref": "ZipFileLocation"
+          }
+        },
+        "Runtime": "python3.8",
+        "MemorySize": {
+          "Ref": "MemorySize"
+        },
+        "Timeout": {
+          "Ref": "Timeout"
+        },
+        "FunctionName": "VODValidatorLambdaFunction"
+      }
+    },
+    "VODValidatorLambdaLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Join": [
+            "/",
+            [
+              "/aws",
+              "lambda",
+              {
+                "Ref": "VODValidatorLambdaFunction"
+              }
+            ]
+          ]
+        },
+        "RetentionInDays": {
+          "Ref": "CloudwatchLogExpiryInDays"
+        }
+      }
+    },
+    "StatesExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  {
+                    "Fn::Sub": "states.${AWS::Region}.amazonaws.com"
+                  }
+                ]
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "StatesExecutionPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:InvokeFunction",
+                    "events:*",
+                    "batch:*",
+                    "sns:Publish",
+                    "xray:*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "VODWorkflowStateMachine": {
+      "Type": "AWS::StepFunctions::StateMachine",
+      "Properties": {
+        "DefinitionString": {
+          "Fn::Sub": [
+            "{\n  \"Comment\": \"A Hello World example using an AWS Lambda function\",\n  \"StartAt\": \"HelloWorld\",\n  \"States\": {\n    \"HelloWorld\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"${lambdaArn}\",\n      \"End\": true\n    }\n  }\n}",
+            {
+              "lambdaArn": {
+                "Fn::GetAtt": [
+                  "MyLambdaFunction",
+                  "Arn"
+                ]
+              }
+            }
+          ]
+        },
+        "RoleArn": {
+          "Fn::GetAtt": [
+            "StatesExecutionRole",
+            "Arn"
+          ]
+        }
+      }
+    }
+  }
+}

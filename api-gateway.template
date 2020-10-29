@@ -1,0 +1,335 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "Prefix": {
+      "Type": "String"
+    },
+    "StepMachineArn": {
+      "Type": "String"
+    },
+    "LambdaArn": {
+      "Type": "String"
+    },
+    "StageName": {
+      "Type": "String"
+    },
+    "ApiKeyId": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "APIGatewayPolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "logs:*",
+                "dynamodb:*",
+                "sns:*",
+                "s3:*",
+                "lambda:*",
+                "events:*",
+                "xray:*",
+                "batch:*",
+                "states:*"
+              ],
+              "Resource": "*"
+            }
+          ]
+        },
+        "PolicyName": {
+          "Fn::Sub": "api-gateway-policy"
+        },
+        "Roles": [
+          {
+            "Ref": "APIGatewayRole"
+          }
+        ]
+      }
+    },
+    "APIGatewayRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }
+      }
+    },
+    "RestApi": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": [
+            "${Prefix}-rest-api-${StackGuid}",
+            {
+              "StackGuid": {
+                "Fn::Select": [
+                  2,
+                  {
+                    "Fn::Split": [
+                      "/",
+                      {
+                        "Ref": "AWS::StackId"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "Prefix": {
+                "Ref": "Prefix"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "IngestModel": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-gateway-asset-input-model.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "RestApiId": {
+            "Ref": "RestApi"
+          }
+        }
+      }
+    },
+    "IngestValidator": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-gateway-validator.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "RestApiId": {
+            "Ref": "RestApi"
+          },
+          "ValidatorName": "IngestValidator",
+          "ValidateRequestBody": "true",
+          "ValidateRequestParameters": "false"
+        }
+      }
+    },
+    "IngestResources": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-gateway-ingest.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "RestApiId": {
+            "Ref": "RestApi"
+          },
+          "RootResourceId": {
+            "Fn::GetAtt": [
+              "RestApi",
+              "RootResourceId"
+            ]
+          },
+          "IntegrationCredentials": {
+            "Fn::GetAtt": [
+              "APIGatewayRole",
+              "Arn"
+            ]
+          },
+          "StepMachineArn": {
+            "Ref": "StepMachineArn"
+          },
+          "RequestValidatorId": {
+            "Fn::GetAtt": [
+              "IngestValidator",
+              "Outputs.RequestValidator"
+            ]
+          },
+          "ModelName": {
+            "Fn::GetAtt": [
+              "IngestModel",
+              "Outputs.AssetInputModel"
+            ]
+          }
+        }
+      }
+    },
+    "ChannelConfigPostModel": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-gateway-channel-config-post-model.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "RestApiId": {
+            "Ref": "RestApi"
+          }
+        }
+      }
+    },
+    "ChannelConfigPostValidator": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-gateway-validator.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "RestApiId": {
+            "Ref": "RestApi"
+          },
+          "ValidatorName": "ChannelConfigPostValidator",
+          "ValidateRequestBody": "true",
+          "ValidateRequestParameters": "false"
+        }
+      }
+    },
+    "ChannelConfigResources": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-gateway-channel-config.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "RestApiId": {
+            "Ref": "RestApi"
+          },
+          "RootResourceId": {
+            "Fn::GetAtt": [
+              "RestApi",
+              "RootResourceId"
+            ]
+          },
+          "IntegrationCredentials": {
+            "Fn::GetAtt": [
+              "APIGatewayRole",
+              "Arn"
+            ]
+          },
+          "LambdaArn": {
+            "Ref": "LambdaArn"
+          },
+          "ChannelConfigPostModel": {
+            "Fn::GetAtt": [
+              "ChannelConfigPostModel",
+              "Outputs.ChannelConfigModel"
+            ]
+          },
+          "ChannelConfigPostValidatorId":{
+            "Fn::GetAtt": [
+              "ChannelConfigPostValidator",
+              "Outputs.RequestValidator"
+            ]
+          }
+        }
+      }
+    },
+    "AssetInfoResources": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-gateway-asset-info.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "RestApiId": {
+            "Ref": "RestApi"
+          },
+          "RootResourceId": {
+            "Fn::GetAtt": [
+              "RestApi",
+              "RootResourceId"
+            ]
+          },
+          "IntegrationCredentials": {
+            "Fn::GetAtt": [
+              "APIGatewayRole",
+              "Arn"
+            ]
+          },
+          "LambdaArn": {
+            "Ref": "LambdaArn"
+          }
+        }
+      }
+    },
+    "ReInstrumentResources": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-gateway-re-instrument.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "RestApiId": {
+            "Ref": "RestApi"
+          },
+          "RootResourceId": {
+            "Fn::GetAtt": [
+              "RestApi",
+              "RootResourceId"
+            ]
+          },
+          "IntegrationCredentials": {
+            "Fn::GetAtt": [
+              "APIGatewayRole",
+              "Arn"
+            ]
+          },
+          "LambdaArn": {
+            "Ref": "LambdaArn"
+          }
+        }
+      }
+    },
+    "RestApiDeployment": {
+      "Type": "AWS::ApiGateway::Deployment",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "RestApi"
+        },
+        "StageName": {
+          "Ref": "StageName"
+        }
+      },
+      "DependsOn": [
+        "IngestResources",
+        "ChannelConfigResources",
+        "AssetInfoResources",
+        "ReInstrumentResources"
+      ]
+    },
+    "ApiKey": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "api-key.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "Prefix": {
+            "Ref": "Prefix"
+          },
+          "StageName": {
+            "Ref": "StageName"
+          },
+          "ApiId": {
+            "Ref": "RestApi"
+          },
+          "ApiKeyId": {
+            "Ref": "ApiKeyId"
+          }
+        }
+      },
+      "DependsOn": [
+        "RestApiDeployment"
+      ]
+    }
+
+  },
+  "Outputs": {
+    "RestApi": {
+      "Value": {
+        "Ref": "RestApi"
+      }
+    }
+  }
+}

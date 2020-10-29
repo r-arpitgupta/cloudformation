@@ -1,0 +1,68 @@
+{
+  "Parameters": {
+    "Prefix": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "SNSTopic": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "DisplayName": {
+          "Fn::Sub": [
+            "${Prefix}-sns-${StackGuid}",
+            {
+              "StackGuid": {
+                "Fn::Select": [
+                  2,
+                  {
+                    "Fn::Split": [
+                      "/",
+                      {
+                        "Ref": "AWS::StackId"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "Prefix": {
+                "Ref": "Prefix"
+              }
+            }
+          ]
+        },
+        "FifoTopic": "false",
+        "TopicName": {
+          "Fn::Sub": [
+            "${Prefix}-sns-${StackGuid}",
+            {
+              "StackGuid": {
+                "Fn::Select": [
+                  2,
+                  {
+                    "Fn::Split": [
+                      "/",
+                      {
+                        "Ref": "AWS::StackId"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "Prefix": {
+                "Ref": "Prefix"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "TopicARN": {
+      "Value": {
+        "Ref": "SNSTopic"
+      }
+    }
+  }
+}

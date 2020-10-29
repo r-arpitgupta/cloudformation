@@ -1,0 +1,135 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "RestApiId": {
+      "Type": "String"
+    },
+    "RootResourceId": {
+      "Type": "String"
+    },
+    "IntegrationCredentials": {
+      "Type": "String"
+    },
+    "LambdaArn": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "AssetInfoResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "ParentId": {
+          "Ref": "RootResourceId"
+        },
+        "PathPart": "assets"
+      }
+    },
+    "AssetInfoWithChannelIdResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "ParentId": {
+          "Ref": "AssetInfoResource"
+        },
+        "PathPart": "{chid}"
+      }
+    },
+    "AssetInfoGet": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "ApiKeyRequired": true,
+        "HttpMethod": "GET",
+        "AuthorizationType": "NONE",
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationHttpMethod": "POST",
+          "Credentials": {
+            "Ref": "IntegrationCredentials"
+          },
+          "Uri": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:apigateway:",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ":lambda:path/2015-03-31/functions/",
+                {
+                  "Ref": "LambdaArn"
+                },
+                "/invocations"
+              ]
+            ]
+          }
+        },
+        "ResourceId": {
+          "Ref": "AssetInfoWithChannelIdResource"
+        },
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "MethodResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Origin": true
+            }
+          }
+        ]
+      }
+    },
+    "AssetInfoOption": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "HttpMethod": "OPTIONS",
+        "AuthorizationType": "NONE",
+        "Integration": {
+          "Type": "MOCK",
+          "IntegrationResponses": [
+            {
+              "StatusCode": 200,
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              },
+              "ResponseTemplates": {
+                "application/json": ""
+              }
+            }
+          ],
+          "PassthroughBehavior": "WHEN_NO_MATCH",
+          "RequestTemplates": {
+            "application/json": "{\"statusCode\": 200}"
+          }
+        },
+        "ResourceId": {
+          "Ref": "AssetInfoWithChannelIdResource"
+        },
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "MethodResponses": [
+          {
+            "ResponseModels": {
+              "application/json": "Empty"
+            },
+            "StatusCode": 200,
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": false,
+              "method.response.header.Access-Control-Allow-Methods": false,
+              "method.response.header.Access-Control-Allow-Origin": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {}
+}

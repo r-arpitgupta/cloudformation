@@ -1,0 +1,131 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "RestApiId": {
+      "Type": "String"
+    },
+    "RootResourceId": {
+      "Type": "String"
+    },
+    "IntegrationCredentials": {
+      "Type": "String"
+    },
+    "LambdaArn":{
+        "Type":"String"
+    },
+    "ChannelConfigPostValidatorId":{
+        "Type":"String"
+    },
+    "ChannelConfigPostModel":{
+        "Type":"String"
+    }
+  },
+  "Resources": {
+    "ChannelConfigResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "ParentId": {
+          "Ref": "RootResourceId"
+        },
+        "PathPart": "channel-config"
+      }
+    },
+    "ChannelConfigWithChannelIdResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "ParentId": {
+          "Ref": "ChannelConfigResource"
+        },
+        "PathPart": "{chid}"
+      }
+    },
+    "ChannelConfigGet": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "ApiKeyRequired": true,
+        "HttpMethod": "GET",
+        "AuthorizationType": "NONE",
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationHttpMethod": "POST",
+          "Credentials": {
+            "Ref": "IntegrationCredentials"
+          },
+          "Uri": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:apigateway:",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ":lambda:path/2015-03-31/functions/",
+                {
+                  "Ref": "LambdaArn"
+                },
+                "/invocations"
+              ]
+            ]
+          }
+        },
+        "ResourceId": {
+          "Ref": "ChannelConfigWithChannelIdResource"
+        },
+        "RestApiId": {
+          "Ref": "RestApiId"
+        }
+      }
+    },
+    "ChannelConfigPost": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "ApiKeyRequired": true,
+        "HttpMethod": "POST",
+        "AuthorizationType": "NONE",
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationHttpMethod": "POST",
+          "Credentials": {
+            "Ref": "IntegrationCredentials"
+          },
+          "Uri": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:apigateway:",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ":lambda:path/2015-03-31/functions/",
+                {
+                  "Ref": "LambdaArn"
+                },
+                "/invocations"
+              ]
+            ]
+          }
+        },
+        "ResourceId": {
+          "Ref": "ChannelConfigWithChannelIdResource"
+        },
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "RequestValidatorId":{
+            "Ref":"ChannelConfigPostValidatorId"
+        },
+        "RequestModels":{
+            "application/json":{"Ref":"ChannelConfigPostModel"}
+        }
+      }
+    }
+  },
+  "Outputs": {
+  }
+}

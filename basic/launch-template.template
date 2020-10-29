@@ -1,0 +1,98 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Mappings": {
+    "RegionMap": {
+      "us-east-1": {
+        "AmazonLinux2": "ami-0aee8ced190c05726"
+      }
+    }
+  },
+  "Parameters": {
+    "VolumeSize": {
+      "Type": "Number",
+      "Default": 100
+    },
+    "KeyName": {
+      "Type": "String"
+    },
+    "SecurityGroupIds": {
+      "Type": "List<AWS::EC2::SecurityGroup::Id>"
+    },
+    "Prefix": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "EC2LaunchTemplate": {
+      "Type": "AWS::EC2::LaunchTemplate",
+      "Properties": {
+        "LaunchTemplateName": {
+          "Fn::Sub": [
+                        "${Prefix}-launch-template-${StackGuid}",
+                        {
+                            "StackGuid": {
+                                "Fn::Select": [
+                                    2,
+                                    {
+                                        "Fn::Split": [
+                                            "/",
+                                            {
+                                                "Ref": "AWS::StackId"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                          "Prefix": {
+                            "Ref": "Prefix"
+                          }
+                        }
+                    ]
+        },
+        "LaunchTemplateData": {
+          "KeyName": {
+            "Ref": "KeyName"
+          },
+          "SecurityGroupIds":
+            {
+              "Ref": "SecurityGroupIds"
+            }
+          ,
+          "ImageId": {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "AmazonLinux2"
+            ]
+          },
+          "BlockDeviceMappings": [
+            {
+              "DeviceName": "/dev/xvda",
+              "Ebs": {
+                "VolumeSize": {
+                  "Ref": "VolumeSize"
+                },
+                "VolumeType": "gp2"
+              }
+            }
+          ],
+          "TagSpecifications": [
+            {"ResourceType": "instance",
+              "Tags": [{"Key": "Name","Value": {"Ref": "Prefix"}}]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "LaunchTemplateId": {
+      "Description": "EC2 Launch Template ID to use when creating AWS Batch compute environments for genomics workflows",
+      "Value": {
+        "Ref": "EC2LaunchTemplate"
+      }
+    }
+  }
+}

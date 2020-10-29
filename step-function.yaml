@@ -1,0 +1,238 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template to create step function using CloudFormation.
+Parameters:
+  Prefix:
+    Type: String
+  IngestLambdaARN:
+    Type: String
+  BatchJobQueueARN:
+    Type: String
+  BatchJobDefinitionARN:
+    Type: String
+  InstrumentationLambdaARN:
+    Type: String
+Resources:
+  StatesExecutionRole:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: basic/step-function-role.template
+      TimeoutInMinutes: '60'
+  StateMachine:
+    Type: 'AWS::StepFunctions::StateMachine'
+    Properties:
+      RoleArn: !GetAtt
+        - StatesExecutionRole
+        - Outputs.StepFunctionRole
+      StateMachineName: !Sub
+        - '${Prefix}-ingest-state-machine-${StackGuid}'
+        - StackGuid: !Select
+            - 2
+            - !Split
+              - /
+              - !Ref 'AWS::StackId'
+          Prefix: !Ref Prefix
+      Tags:
+        - Key: Name
+          Value: !Ref Prefix
+      DefinitionString: !Sub |-
+        {
+          "Comment": "AVOD step function for asset ingestion process",
+          "StartAt": "InvokeValidatorLambdaFunction",
+          "TimeoutSeconds": 7200,
+          "States": {
+            "InvokeValidatorLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${IngestLambdaARN}",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": "$.errors.validator",
+                  "Next": "NotifyFailure"
+                }
+              ],
+              "TimeoutSeconds": 300,
+              "HeartbeatSeconds": 60,
+              "Next": "IsTranscodeConfigGenerationRequired?"
+            },
+            "IsTranscodeConfigGenerationRequired?": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.infra.transcode_config_generation_required",
+                  "BooleanEquals": true,
+                  "Next": "GenerateTranscodeConfig"
+                }
+
+              ],
+              "Default":"IsPreRollRequired?"
+            },
+            "IsPreRollRequired?": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.asset_info.enable_pre_roll",
+                  "BooleanEquals": true,
+                  "Next": "HandlePreRoll"
+                }
+
+              ],
+              "Default":"SubmitAnnealerBatchJob"
+            },
+            "HandlePreRoll": {
+              "Type": "Pass",
+              "Result": {"Error":"Pre Roll not supported"},
+              "ResultPath": "$.errors.pre_roll",
+              "Next": "NotifyFailure"
+            },
+            "GenerateTranscodeConfig": {
+              "Type": "Pass",
+              "Result": {"Error":"Transcode config generation not supported"},
+              "ResultPath": "$.errors.tc_config",
+              "Next": "NotifyFailure"
+            },
+            "SubmitAnnealerBatchJob": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::batch:submitJob.sync",
+              "Parameters": {
+                "JobName.$": "$.infra.batch.job_name",
+                "JobQueue": "${BatchJobQueueARN}",
+                "JobDefinition": "${BatchJobDefinitionARN}",
+                "ContainerOverrides.$":"$.infra.batch.container_overrides"
+              },
+              "ResultPath": "$.annealer_batch_response",
+              "TimeoutSeconds": 3000,
+              "Next": "PrepareInstrumentalJson",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": "$.errors.annealer_batch",
+                  "Next": "NotifyFailure"
+                }
+              ]
+            },
+            "PrepareInstrumentalJson": {
+              "Type": "Task",
+              "Resource": "${IngestLambdaARN}",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": "$.errors.instrumentation_input_generator",
+                  "Next": "NotifyFailure"
+                }
+              ],
+              "TimeoutSeconds": 300,
+              "HeartbeatSeconds": 60,
+              "Next": "InvokeInstrumentalLambda"
+            },
+            "InvokeInstrumentalLambda": {
+              "Type": "Task",
+              "Resource": "${InstrumentationLambdaARN}",
+              "InputPath": "$.instrumentation_input",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": "$.errors.instrumental_lambda",
+                  "Next": "NotifyFailure"
+                }
+              ],
+              "TimeoutSeconds": 300,
+              "HeartbeatSeconds": 60,
+              "ResultPath": "$.instrumental_lambda_response",
+              "Next": "InvokeNotifySuccessLambda"
+            },
+             "InvokeNotifySuccessLambda": {
+              "Type": "Task",
+              "Resource": "${IngestLambdaARN}",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": "$.errors.callback_lambda",
+                  "Next": "NotifyFailure"
+                }
+              ],
+              "TimeoutSeconds": 300,
+              "HeartbeatSeconds": 60,
+              "End": true
+            },
+            "NotifyFailure": {
+              "Type": "Task",
+              "Resource": "${IngestLambdaARN}",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 300,
+              "HeartbeatSeconds": 60,
+              "End": true
+            }
+          }
+        }
+Outputs:
+  StepFunction:
+    Value: !Ref StateMachine

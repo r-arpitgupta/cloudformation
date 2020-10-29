@@ -1,0 +1,29 @@
+{
+  "Parameters": {
+    "CacheParameterGroupFamily": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "RedisParameterGroup": {
+      "Type": "AWS::ElastiCache::ParameterGroup",
+      "Properties": {
+        "Description": "redis parameter group",
+        "CacheParameterGroupFamily": {
+          "Ref": "CacheParameterGroupFamily"
+        },
+        "Properties": {
+          "maxmemory-policy": "allkeys-lru",
+          "cluster-enabled": "yes"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "RedisParameterGroup": {
+      "Value": {
+        "Ref": "RedisParameterGroup"
+      }
+    }
+  }
+}

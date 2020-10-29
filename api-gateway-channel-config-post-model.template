@@ -1,0 +1,125 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "RestApiId": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "ChannelConfigModel": {
+      "Type": "AWS::ApiGateway::Model",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "ContentType": "application/json",
+        "Description": "",
+        "Name": "ChannelConfig",
+        "Schema": {
+          "description": "input asset schema",
+          "title": "channel config",
+          "type": "object",
+          "properties": {
+            "reprocess": {
+              "description": "",
+              "type": "boolean"
+            },
+            "adTagConfigId": {
+              "description": "",
+              "type": "string"
+            },
+            "transcodingConfigUrl": {
+              "description": "",
+              "type": "string"
+            },
+            "adSegmentEndpoint": {
+              "description": "",
+              "type": "string"
+            },
+            "enablePlaylistParamSupport": {
+              "description": "",
+              "type": "boolean"
+            },
+            "breakDetails": {
+              "description": "",
+              "type": "object",
+              "properties": {
+                "breakDuration": {
+                  "description": "",
+                  "type": "string"
+                }
+              }
+            },
+            "raindropsEndpoint": {
+              "description": "",
+              "type": "string"
+            },
+            "beaconFrequency": {
+              "description": "",
+              "type": "string"
+            },
+            "destinationConfig": {
+              "description": "",
+              "type": "object",
+              "properties": {
+                "bucketName": {
+                  "description": "",
+                  "type": "string"
+                },
+                "infix": {
+                  "default": "instrumented_playlist",
+                  "description": "",
+                  "type": "string"
+                },
+                "region": {
+                  "description": "",
+                  "type": "string"
+                },
+                "type": {
+                  "default": "S3",
+                  "type": "string"
+                }
+              }
+            },
+            "isPostRollEnabled": {
+              "description": "",
+              "type": "boolean"
+            },
+            "cueOffset": {
+              "description": "",
+              "type": "string"
+            },
+            "customerId": {
+              "description": "",
+              "type": "string"
+            },
+            "playlistEndpoint": {
+              "description": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "adSegmentEndpoint",
+            "beaconFrequency",
+            "breakDetails",
+            "cueOffset",
+            "destinationConfig",
+            "enablePlaylistParamSupport",
+            "isPostRollEnabled",
+            "playlistEndpoint",
+            "raindropsEndpoint",
+            "reprocess",
+            "transcodingConfigUrl"
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ChannelConfigModel": {
+      "Value": {
+        "Ref": "ChannelConfigModel"
+      }
+    }
+  }
+}

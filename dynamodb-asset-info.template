@@ -1,0 +1,117 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "Prefix": {
+      "Type": "String"
+    },
+    "TableName": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "DynamoDBTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "uuid",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName" : "chid",
+            "AttributeType" : "S"
+          },
+          {
+            "AttributeName" : "updated_at",
+            "AttributeType" : "S"
+          },
+          {
+            "AttributeName" : "name",
+            "AttributeType" : "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "uuid",
+            "KeyType": "HASH"
+          }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "TableName": {
+          "Fn::Sub": [
+            "${Prefix}-${TableName}-${StackGuid}",
+            {
+              "StackGuid": {
+                "Fn::Select": [
+                  2,
+                  {
+                    "Fn::Split": [
+                      "/",
+                      {
+                        "Ref": "AWS::StackId"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "Prefix": {
+                "Ref": "Prefix"
+              }
+            }
+          ]
+        },
+        "GlobalSecondaryIndexes" : [
+          {
+          "IndexName" : "chid-updated_at",
+          "KeySchema" : [
+            {
+              "AttributeName" : "chid",
+              "KeyType" : "HASH"
+            },
+            {
+              "AttributeName" : "updated_at",
+              "KeyType" : "RANGE"
+            }
+          ],
+          "Projection" : {
+            "ProjectionType" : "ALL"
+          }
+          },
+                    {
+          "IndexName" : "chid-name",
+          "KeySchema" : [
+            {
+              "AttributeName" : "chid",
+              "KeyType" : "HASH"
+            },
+            {
+              "AttributeName" : "name",
+              "KeyType" : "RANGE"
+            }
+          ],
+          "Projection" : {
+            "ProjectionType" : "ALL"
+          }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "TableName": {
+      "Value": {
+        "Fn::Select": [
+          1,
+          {
+            "Fn::Split": [
+              "/",
+              {
+                "Fn::GetAtt": "DynamoDBTable.Arn"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

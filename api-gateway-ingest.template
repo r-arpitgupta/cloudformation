@@ -1,0 +1,181 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "RestApiId": {
+      "Type": "String"
+    },
+    "RootResourceId": {
+      "Type": "String"
+    },
+    "IntegrationCredentials": {
+      "Type": "String"
+    },
+    "StepMachineArn": {
+      "Type": "String"
+    },
+    "RequestValidatorId":{
+        "Type":"String"
+    },
+    "ModelName":{
+        "Type":"String"
+    }
+  },
+  "Resources": {
+    "IngestResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "ParentId": {
+          "Ref": "RootResourceId"
+        },
+        "PathPart": "ingest"
+      }
+    },
+    "IngestPost": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "ApiKeyRequired": true,
+        "HttpMethod": "POST",
+        "AuthorizationType": "NONE",
+        "Integration": {
+          "Type": "AWS",
+          "IntegrationHttpMethod": "POST",
+          "Credentials": {
+            "Ref": "IntegrationCredentials"
+          },
+          "Uri": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:apigateway:",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ":states:action/StartExecution"
+              ]
+            ]
+          },
+          "RequestTemplates": {
+            "application/json": {
+              "Fn::Sub": [
+                "{\"input\": \"{\\\"asset_info\\\":$util.escapeJavaScript($input.json('$'))}\",\"stateMachineArn\": \"${arn}\"}",
+                {
+                  "arn": {
+                    "Ref": "StepMachineArn"
+                  }
+                }
+              ]
+            }
+          },
+          "IntegrationResponses": [
+            {
+              "ResponseTemplates": {
+                "application/json": "{\"token\": \"$input.json('$.executionArn').split(':')[7].replace('\"', \"\")\"}"
+              },
+              "StatusCode": 200
+            }
+          ],
+          "PassthroughBehavior": "WHEN_NO_TEMPLATES"
+        },
+        "ResourceId": {
+          "Ref": "IngestResource"
+        },
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "MethodResponses": [
+          {
+            "ResponseModels": {
+              "application/json": "Empty"
+            },
+            "StatusCode": 200
+          }
+        ],
+        "RequestValidatorId":{
+            "Ref":"RequestValidatorId"
+        },
+        "RequestModels":{
+            "application/json":{"Ref":"ModelName"}
+        }
+      }
+    },
+    "IngestStatusResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "ParentId": {
+          "Ref": "IngestResource"
+        },
+        "PathPart": "status"
+      }
+    },
+    "IngestStatusPost": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "ApiKeyRequired": true,
+        "HttpMethod": "POST",
+        "AuthorizationType": "NONE",
+        "Integration": {
+          "Type": "AWS",
+          "IntegrationHttpMethod": "POST",
+          "Credentials": {
+            "Ref": "IntegrationCredentials"
+          },
+          "Uri": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:apigateway:",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ":states:action/DescribeExecution"
+              ]
+            ]
+          },
+          "RequestTemplates": {
+            "application/json": {
+              "Fn::Sub": [
+                "#set ($arn = \"${arn}:$input.json('$.token')\") \n #set($arn = $arn.replace('\"', \"\")) \n {\"executionArn\": \"$arn.replace('stateMachine','execution')\"}",
+                {
+                  "arn": {
+                    "Ref": "StepMachineArn"
+                  }
+                }
+              ]
+            }
+          },
+          "IntegrationResponses": [
+            {
+              "ResponseTemplates": {
+                "application/json": ""
+              },
+              "StatusCode": 200
+            }
+          ],
+          "PassthroughBehavior": "WHEN_NO_TEMPLATES"
+        },
+        "ResourceId": {
+          "Ref": "IngestStatusResource"
+        },
+        "RestApiId": {
+          "Ref": "RestApiId"
+        },
+        "MethodResponses": [
+          {
+            "ResponseModels": {
+              "application/json": "Empty"
+            },
+            "StatusCode": 200
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+  }
+}
