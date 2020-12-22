@@ -1,0 +1,140 @@
+{
+  "Description": "Template to create Redis Cluster using CloudFormation.",
+  "Parameters": {
+    "Prefix": {
+      "Type": "String"
+    },
+    "Subnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>"
+    },
+    "CacheParameterGroupFamily": {
+      "Type": "String",
+      "Default": "redis6.x"
+    },
+    "EngineVersion": {
+      "Type": "String",
+      "Default": "6.x"
+    },
+    "MultiAZEnabled": {
+      "Type": "String",
+      "Default": "false"
+    },
+    "ReplicasPerNodeGroup": {
+      "Type": "Number",
+      "Default": 1
+    },
+    "NumNodeGroups": {
+      "Type": "Number",
+      "Default": 1
+    },
+    "ClusterNodeType": {
+      "Description": "The compute and memory capacity of the nodes in the Redis Cluster",
+      "Type": "String",
+      "Default": "cache.m6g.large",
+      "AllowedValues": [
+        "cache.t2.micro",
+        "cache.t2.small",
+        "cache.t2.medium",
+        "cache.r3.large",
+        "cache.r3.xlarge",
+        "cache.r3.2xlarge",
+        "cache.r3.4xlarge",
+        "cache.r3.8xlarge",
+        "cache.m5.large",
+        "cache.m5.xlarge",
+        "cache.m5.2xlarge",
+        "cache.m5.4xlarge",
+        "cache.m5.12xlarge",
+        "cache.m5.24xlarge",
+        "cache.m6g.large",
+        "cache.m6g.xlarge",
+        "cache.m6g.2xlarge",
+        "cache.m6g.4xlarge",
+        "cache.m6g.12xlarge",
+        "cache.m6g.24xlarge"
+      ],
+      "ConstraintDescription": "must select a valid Cache Node type."
+    },
+    "CacheParameterGroupName": {
+      "Type": "String",
+      "Default": "default.redis6.x.cluster.on"
+    },
+    "SecurityGroupIds": {
+      "Description": "Security group Ids for the Instances",
+      "Type": "List<AWS::EC2::SecurityGroup::Id>"
+    },
+    "SnapshotRetentionLimit": {
+      "Type": "Number",
+      "Default": 1
+    }
+  },
+  "Resources": {
+    "ElasticacheSubnetGroup": {
+      "Type": "AWS::ElastiCache::SubnetGroup",
+      "Properties": {
+        "Description": "subnets for elasticache",
+        "SubnetIds": {
+          "Ref": "Subnets"
+        }
+      }
+    },
+    "ElasticacheCluster": {
+      "Type": "AWS::ElastiCache::ReplicationGroup",
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Timeout": "PT20M"
+        }
+      },
+      "Properties": {
+        "AutoMinorVersionUpgrade": "false",
+        "CacheNodeType": {
+          "Ref": "ClusterNodeType"
+        },
+        "CacheParameterGroupName": {
+          "Ref": "CacheParameterGroupName"
+        },
+        "CacheSubnetGroupName": {
+          "Ref": "ElasticacheSubnetGroup"
+        },
+        "ReplicasPerNodeGroup": {
+          "Ref": "ReplicasPerNodeGroup"
+        },
+        "AutomaticFailoverEnabled": "true",
+        "Engine": "redis",
+        "EngineVersion": {
+          "Ref": "EngineVersion"
+        },
+        "MultiAZEnabled": {
+          "Ref": "MultiAZEnabled"
+        },
+        "NumNodeGroups": {
+          "Ref": "NumNodeGroups"
+        },
+        "ReplicationGroupDescription": "ElastiCache redis with cluster enabled mode for transcodeDB",
+        "SecurityGroupIds": {
+          "Ref": "SecurityGroupIds"
+        },
+        "SnapshotRetentionLimit": {
+          "Ref": "SnapshotRetentionLimit"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ElastiCacheDNS": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ElasticacheCluster",
+          "ConfigurationEndPoint.Address"
+        ]
+      },
+      "Description": "DNS of ElastCache Redis Cluster seperated by commas."
+    },
+    "ElastiCacheIdenfier": {
+      "Value": {
+        "Ref": "ElasticacheCluster"
+      },
+      "Description": "Name of ElastCache Redis Replication Group"
+    }
+  }
+}
