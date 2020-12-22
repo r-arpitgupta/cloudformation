@@ -110,7 +110,7 @@
         "NumNodeGroups": {
           "Ref": "NumNodeGroups"
         },
-        "ReplicationGroupDescription": "ElastiCache redis with cluster enabled mode for transcodeDB",
+        "ReplicationGroupDescription": "ElastiCache redis with cluster enabled mode",
         "SecurityGroupIds": {
           "Ref": "SecurityGroupIds"
         },
