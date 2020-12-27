@@ -1,0 +1,30 @@
+{
+  "Parameters": {
+    "SubnetId": {
+      "Type": "String"
+    },
+    "RouteTableId": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "SubnetRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "SubnetId"
+        },
+        "RouteTableId": {
+          "Ref": "RouteTableId"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "SubnetRouteTableAssociation": {
+      "Value": {
+        "Ref": "SubnetRouteTableAssociation"
+      }
+    }
+  }
+}

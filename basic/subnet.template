@@ -1,0 +1,66 @@
+{
+  "Parameters": {
+    "VpcId": {
+      "Type": "String"
+    },
+    "CidrBlock": {
+      "Type": "String"
+    },
+    "AvailabilityZone": {
+      "Type": "String",
+      "Default": "us-east-1a",
+      "AllowedValues": [
+        "us-east-1a",
+        "us-east-1b",
+        "eu-west-1a",
+        "eu-west-1b",
+        "eu-west-2a",
+        "eu-west-2b"
+      ]
+    },
+    "Prefix": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "Subnet": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "CidrBlock": {
+          "Ref": "CidrBlock"
+        },
+        "AvailabilityZone": {
+          "Ref": "AvailabilityZone"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": [
+                "${Prefix}-subnet-${AvailabilityZone}",
+                {
+                  "Prefix": {
+                    "Ref": "Prefix"
+                  },
+                  "AvailabilityZone": {
+                    "Ref": "AvailabilityZone"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "SubnetId": {
+      "Value": {
+        "Ref": "Subnet"
+      }
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "Parameters": {
+    "Prefix": {
+        "Type" : "String"
+    }
+    "AlarmName":{
+        "Type": "String"
+    }
+    "SNSTopicName": {
+      "Type": "String"
+    },
+    "NatGatewayId": {
+      "Type": "String"
+    },
+    "MetricName": {
+      "Type": "String"
+    },
+    "Statistics": {
+      "Type": "String"
+    },
+    "Threshold": {
+      "Type": "Number",
+      "Default": "0"
+    },
+    "ComparisonOperator": {
+      "Type": "String",
+      "Default": "GreaterThanThreshold"
+    },
+    "Period": {
+      "Type": "Number",
+      "Description": "period in seconds",
+      "Default": "60"
+    }
+  },
+  "Resources": {
+    "NATAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" :{
+            "Ref": "AlarmName"
+        },
+        "AlarmActions": [
+          {
+            "Ref": "SNSTopicName"
+          }
+        ],
+        "OKActions": [
+          {
+            "Ref": "SNSTopicName"
+          }
+        ],
+        "MetricName": {
+          "Ref": "MetricName"
+        },
+        "Namespace": "AWS/NATGateway",
+        "Statistic": {
+          "Ref": "Statistics"
+        },
+        "Period": {
+          "Ref": "Period"
+        },
+        "EvaluationPeriods": "1",
+        "Threshold": {
+          "Ref": "Threshold"
+        },
+        "ComparisonOperator": {
+          "Ref": "ComparisonOperator"
+        },
+        "Dimensions": [
+          {
+            "Name": "NatGatewayId",
+            "Value": {
+              "Ref": "NatGatewayId"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

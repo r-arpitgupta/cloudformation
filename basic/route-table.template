@@ -1,0 +1,42 @@
+{
+  "Parameters": {
+    "VpcId": {
+      "Type": "String"
+    },
+    "Prefix": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "RouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": [
+                "${Prefix}-route-table",
+                {
+                  "Prefix": {
+                    "Ref": "Prefix"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "RouteTableId": {
+      "Value": {
+        "Ref": "RouteTable"
+      }
+    }
+  }
+}

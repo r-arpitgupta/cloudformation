@@ -1,0 +1,123 @@
+{
+  "Parameters": {
+    "PrivateDnsEnabled": {
+      "Type": "String",
+      "Default": "false"
+    },
+    "RouteTableIds": {
+      "Type": "String",
+    },
+    "SecurityGroupIds" : {
+      "Type": "String",
+    },
+    "ServiceName" : {
+      "Type": "String",
+      "AllowedValues": [
+        "com.amazonaws.us-east-1.dynamodb",
+        "com.amazonaws.us-east-1.kinesis-streams",
+        "com.amazonaws.us-east-1.s3",
+        "com.amazonaws.eu-west-1.dynamodb",
+        "com.amazonaws.eu-west-1.kinesis-streams",
+        "com.amazonaws.eu-west-1.s3",
+        "com.amazonaws.eu-west-2.dynamodb",
+        "com.amazonaws.eu-west-2.kinesis-streams",
+        "com.amazonaws.eu-west-2.s3"
+      ]
+    },
+    "SubnetIds" : {
+        "Type": "String"
+    },
+    "VpcEndpointType": {
+      "Type": "String",
+      "Default": "Gateway",
+      "AllowedValues": [
+        "Gateway",
+        "GatewayLoadBalancer",
+        "Interface"
+      ]
+    },
+    "VpcId": {
+      "Type": "String"
+    }
+  },
+  "Conditions": {
+    "isGatewayEndpoint": {
+      "Fn::Equals": [
+        {
+          "Ref": "VpcEndpointType"
+        },
+        "Gateway"
+      ]
+    }
+  },
+  "Resources": {
+    "VpcEndpoint": {
+      "Type": "AWS::EC2::VPCEndpoint",
+      "Properties": {
+        "PrivateDnsEnabled": {
+          "Ref": "PrivateDnsEnabled"
+        },
+        "RouteTableIds": {
+          "Fn::If": [
+            "isGatewayEndpoint",
+            {
+              "Fn::Split": [
+                ",",
+                {
+                  "Ref": "RouteTableIds"
+                }
+              ]
+            },
+            {
+              "Ref": "AWS::NoValue"
+            }
+          ]
+        },
+        "SecurityGroupIds" : {
+          "Fn::If": [
+            "isGatewayEndpoint",
+            {
+              "Ref": "AWS::NoValue"
+            },
+            {
+              "Fn::Split": [
+                ",",
+                {
+                  "Ref": "SecurityGroupIds"
+                }
+              ]
+            }
+          ]
+        },
+        "ServiceName": {"Ref": "ServiceName"},
+        "SubnetIds" : {
+          "Fn::If": [
+            "isGatewayEndpoint",
+            {
+              "Ref": "AWS::NoValue"
+            },
+            {
+              "Fn::Split": [
+                ",",
+                {
+                  "Ref": "SubnetIds"
+                }
+              ]
+            }
+          ]
+        },
+        "VpcEndpointType": {"Ref": "VpcEndpointType"},
+        "VpcId": {
+          "Ref": "VpcId"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "VpcEndpoint":{
+        "Value":{
+            "Ref": "VpcEndpoint"
+        }
+    }
+  }
+}

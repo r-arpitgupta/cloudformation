@@ -1,0 +1,48 @@
+{
+  "Parameters": {
+    "SubnetId": {
+      "Type": "String"
+    },
+    "Prefix": {
+      "Type": "String"
+    },
+    "AllocationId": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "NAT": {
+      "Type": "AWS::EC2::NatGateway",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "SubnetId"
+        },
+        "AllocationId": {
+          "Ref": "AllocationId"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": [
+                "${Prefix}-NAT",
+                {
+                  "Prefix": {
+                    "Ref": "Prefix"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "NATGatewayId": {
+      "Value": {
+        "Ref": "NAT"
+      }
+    }
+  }
+}
